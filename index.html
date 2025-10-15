@@ -600,23 +600,7 @@ background: #e5e7eb;  /* hover 시 배경색 살짝 진하게 */ }
   // Export CSV
   const btnExport = document.getElementById('btn-export');
   btnExport?.addEventListener('click', ()=>{
-    const headers = ["title","start","end","lane","category","note"];
-    const rows = [headers.join(",")].concat(
-      events.map(ev=>headers.map(h=>{
-        const val = (ev[h] ?? "").toString().replace(/"/g,'""');
-        const needQuotes = /[",\n]/.test(val);
-        return needQuotes ? `"${val}"` : val;
-      }).join(","))
-    );
-    const csv = rows.join("\n");
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'enterprise-calendar.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+   
   });
 
   // Add Event → 폼으로 스크롤
@@ -726,6 +710,7 @@ background: #e5e7eb;  /* hover 시 배경색 살짝 진하게 */ }
 </script>
 </body>
 </html>
+
 
 
 
