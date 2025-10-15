@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>사내 포털 – iOS 폴더 스타일 + 전사일정&행사 (필터/입력 기능 포함)</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --folder:#ffffff; --line:rgba(0,0,0,.06); --card:#fff; --grid:#e5e7eb; --text:#0f172a;
+    --focus:#2563eb; --muted:#64748b; --shadow:0 12px 24px rgba(0,0,0,.06);
+    --lane-h:64px; --lane-gap:1px; --left-col:160px; --header-h:34px; --cell-pad:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:24px; font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif; background:var(--bg); color:var(--text)}
+  img{max-width:100%; display:block}
+  a{color:inherit}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--focus); outline-offset:3px; border-radius:8px}
+  .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  h1{margin:0 0 20px; font-size:18px}
+  h2{margin:28px 0 12px; font-size:16px}
+  .container{max-width:1200px; margin:0 auto}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px}
+
+  /* 폴더 카드 */
+  .folder{background:var(--folder);
+border-radius:28px;
+padding:18px 16px;
+border:1px solid var(--line);
+box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.7);
+transition:transform .15s, box-shadow .15s, background-color .15s, color .15s;}
+
+  .folder:hover{ transform:translateY(-2px); 
+box-shadow:0 16px 30px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.7);
+background: #e5e7eb;  /* hover 시 배경색 살짝 진하게 */ }
+
+.folder:hover .label {
+  color: #1e293b;  /* 기본보다 조금 더 진한 남색톤 */
+}
+
+  .apps{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+  .app{display:flex; align-items:center; justify-content:center; flex-direction:column; text-decoration:none; color:var(--text); gap:6px}
+  .badge{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 6px 14px rgba(0,0,0,.08);transition:transform .12s, box-shadow .12s; font-weight:700; font-size:12px; color:#fff}
+  .app:hover .badge{ transform:translateY(-1px); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 10px 18px rgba(0,0,0,.12) }
+  .label{font-size:10px;color:#334155;text-align:center;max-width:64px;line-height:1.2}
+  .c-red{background:linear-gradient(135deg,#ff6a7a,#ff3d3d)}
+  .c-purple{background:linear-gradient(135deg,#a77bff,#7a4cff)}
+  .c-sky{background:linear-gradient(135deg,#79b6ff,#4a8dff)}
+  .c-orange{background:linear-gradient(135deg,#ffa552,#ff7a1a)}
+  .c-green{background:linear-gradient(135deg,#55d6a9,#26b87a)}
+  .c-blue{background:linear-gradient(135deg,#6e8cff,#3b5bff)}
+  .c-teal{background:linear-gradient(135deg,#64e0e3,#28c3d6)}
+  .c-gray{background:linear-gradient(135deg,#c9ced6,#9aa3ad)}
+
+  .folder-label{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;font-size:14px}
+  .folder-label .emoji{font-size:18px}
+
+  /* 카드 */
+  .card{background:var(--card);border:1px solid var(--grid);border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+
+  /* 컨트롤 */
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 6px}
+  .seg{display:inline-flex;border:1px solid var(--grid);border-radius:10px;overflow:hidden}
+  .seg button{padding:6px 10px;border:0;background:#fff;font-size:12px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:#eef2ff}
+  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid(var(--grid));border:1px solid var(--grid);border-radius:999px;padding:6px 10px;background:#fff;font-size:12px;cursor:pointer}
+  .pill[aria-pressed="true"]{background:#dcfce7}
+  .scroll-x{display:flex;gap:8px;overflow:auto;padding-bottom:2px}
+
+  /* ===== SP Modern header / toolbar (추가) ===== */
+  .sp-hero{margin:12px 0 8px}
+  .sp-breadcrumb{font-size:12px;color:#6b7280;display:flex;gap:8px;align-items:center}
+  .sp-breadcrumb .sep{opacity:.5}
+  .sp-titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px}
+  .sp-titlebar h2{margin:0;font-size:22px}
+  .sp-sub{margin:6px 0 0;color:#64748b;font-size:13px}
+  .btn{border:1px solid var(--grid);background:#fff;border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .btn.ghost{background:#fafafa}
+  .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+  .btn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  .btn[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #2563eb33}
+
+  /* 연간 매트릭스 */
+  .year-grid{position:relative;overflow:hidden}
+  .header,.row{display:grid;grid-template-columns:var(--left-col) repeat(12,1fr)}
+  .header div,.row div{padding:var(--cell-pad);border-bottom:1px solid var(--grid)}
+  .header{background:#f7f8fa;font-size:12px;font-weight:600;position:sticky;top:0;z-index:2} /* 톤 조정 */
+  .lane-name{padding:10px 12px;border-right:1px solid var(--grid);display:flex;align-items:center;font-size:12px;font-weight:600;background:#f9fafb;color:#111827}
+  .cell{height:var(--lane-h);border-left:1px solid var(--grid)}
+  .row .cell:first-child{border-left:none}
+  .grid-lines{position:absolute;inset:var(--header-h) 0 0 var(--left-col);display:grid;grid-template-columns:repeat(12,1fr);pointer-events:none}
+  .grid-lines div{border-left:1px dashed #e6e6e6}
+  .bar-layer{position:absolute;inset:var(--header-h) 0 0 var(--left-col)}
+  .event{position:absolute;height:26px;border-radius:8px;padding:4px 8px;font-size:12px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.05);font-weight:600}
+  .t-전략{background:#e0f2fe}
+  .t-재경{background:#d1fae5}
+  .t-인사{background:#fef9c3}
+  .t-컴플라이언스{background:#fee2e2}
+  .t-IT{background:#e5e7eb}
+  .t-운영{background:#f5e8ff}
+  .t-마케팅{background:#e7fff2}
+  .t-영업{background:#fff0e5}
+  .t-교육{background:#ffe7fb}
+  .t-행사{background:#e0e7ff}
+  .today-line{position:absolute;top:var(--header-h);bottom:0;width:2px;background:#2563eb33;pointer-events:none}
+
+  /* Compact density (추가) */
+  body.compact :root{ --lane-h:40px; }
+  body.compact .event{height:20px;padding:2px 8px;font-size:11px;line-height:16px;border-radius:6px}
+
+  /* 모달 */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px}
+  #modal[aria-hidden="false"]{display:flex}
+  #modal .box{background:#fff;border-radius:14px;padding:18px;max-width:560px;width:100%;border:1px solid var(--grid);box-shadow:0 10px 30px rgba(0,0,0,.15)}
+  #modal h3{margin:0 0 8px;font-size:16px}
+  #modal p{margin:6px 0 0;font-size:13px;color:#334155;white-space:pre-line}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  button{border:1px solid var(--grid);border-radius:10px;background:#fff;padding:8px 10px;cursor:pointer}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+  /* 접근성: 감속 선호 */
+  @media (prefers-reduced-motion: reduce){
+    .folder,.badge{transition:none}
+  }
+
+  /* 프린트: 연간표만 */
+  @media print{
+    body{margin:0}
+    .grid,.imgbox,.hint,h1,.controls,#event-form,.sp-hero{display:none}
+    .year-grid{border:0}
+  }
+/* ===== Tooltip (apps 공통) ===== */
+.tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 260px;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  opacity: 0;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.tooltip[data-show="true"] {
+  opacity: 1;
+  transform: translate(-50%, -12px);
+}
+/* 고대비 모드 대비 */
+@media (prefers-contrast: more) {
+  .tooltip { outline: 2px solid #fff; }
+}
+
+</style>
+</head>
+<body>
+<div class="container" role="main">
+  <h1>📁 카테고리 (iOS 폴더 스타일)</h1>
+
+  <div class="grid">
+    <!-- ❤️ P&C -->
+    <section aria-labelledby="sec-pc">
+      <div class="folder" role="group" aria-labelledby="sec-pc">
+        <div class="apps">
+  <!-- 인사근태 -->
+  <a class="app"
+   href="#"
+   target="_blank"
+   rel="noopener noreferrer"
+   data-tooltip="컴패셔너의 출근,퇴근,연차 등 확인할 수 있습니다">
+  <div class="badge c-red" aria-hidden="true"><span aria-hidden="true">근태</span></div>
+  <div class="label">인사근태</div>
+</a>
+         <!-- 조직도 -->
+      <a class="app"
+         href="#"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-tooltip="회사 전체 조직도를 확인할 수 있습니다">
+        <div class="badge c-purple"><span aria-hidden="true">조직</span></div>
+        <div class="label">조직도</div>
+      </a>
+          <!-- 연락처 -->
+      <a class="app"
+         href="#"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-tooltip="사내 주요 연락처를 검색하고 확인할 수 있습니다">
+        <div class="badge c-sky">연락</div>
+        <div class="label">연락처</div>
+      </a>
+          <!-- 사번 조회 -->
+      <a class="app"
+         href="#"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-tooltip="사번 정보를 확인하고 관리할 수 있습니다">
+        <div class="badge c-orange">ID</div>
+        <div class="label">사번</div>
+      </a>
+          <!-- Blue line -->
+      <a class="app"
+         href="#"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-tooltip="사내 소통 플랫폼 Blue line에 접속합니다">
+        <div class="badge c-blue">BL</div>
+        <div class="label">Blue line</div>
+      </a>
+
+ <!-- Blue line -->
+      <a class="app"
+         href="#"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-tooltip="사내 소통 플랫폼 Blue line에 접속합니다">
+        <div class="badge c-blue">BL</div>
+        <div class="label">Blue line</div>
+      </a>
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="folder-label" id="sec-pc"><span class="emoji" aria-hidden="true">❤️</span><span>P&amp;C</span></div>
+    </section>
+
+    <!-- 🍑 재경 -->
+    <section aria-labelledby="sec-fin">
+      <div class="folder" role="group" aria-labelledby="sec-fin">
+        <div class="apps">
+          <a class="app" href="http://gwa.compassion.or.kr/gw/userMain.do" target="_blank" rel="noopener noreferrer"><div class="badge c-green">GW</div><div class="label">그룹웨어</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-orange">BIZ</div><div class="label">Bizplay</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-teal">CHAT</div><div class="label">Chat FIV</div></a>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="folder-label" id="sec-fin"><span class="emoji" aria-hidden="true">🍑</span><span>재경</span></div>
+    </section>
+
+    <!-- 🐬 브랜딩 -->
+    <section aria-labelledby="sec-brand">
+      <div class="folder" role="group" aria-labelledby="sec-brand">
+        <div class="apps">
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-purple">BR</div><div class="label">브랜드 허브</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-red">YT</div><div class="label">유튜브</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-green">NP</div><div class="label">네이버 포스트</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-blue">쇼츠</div><div class="label">숏츠</div></a>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="folder-label" id="sec-brand"><span class="emoji" aria-hidden="true">🐬</span><span>브랜딩</span></div>
+    </section>
+
+    <!-- 💜 Website -->
+    <section aria-labelledby="sec-web">
+      <div class="folder" role="group" aria-labelledby="sec-web">
+        <div class="apps">
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-teal">ONE</div><div class="label">글로벌 ONE</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-gray">CSF</div><div class="label">CSF</div></a>
+          <a class="app" href="#" target="_blank" rel="noopener noreferrer"><div class="badge c-sky">WEB</div><div class="label">컴퍼니 홈페이지</div></a>
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="folder-label" id="sec-web"><span class="emoji" aria-hidden="true">💜</span><span>Website</span></div>
+    </section>
+  </div>
+
+  <!-- ====================== 전사일정&행사 ====================== -->
+  <!-- (SP Modern Header / Toolbar 추가) -->
+  <section class="sp-hero" aria-labelledby="ecal-title">
+    <div class="sp-breadcrumb" aria-label="breadcrumb">
+      <span>About Us</span> <span class="sep">/</span>
+      <span>Enterprise Calendar</span>
+    </div>
+    <div class="sp-titlebar">
+      <h2 id="ecal-title">Enterprise Calendar</h2>
+      <div class="sp-actions" role="toolbar" aria-label="Calendar actions">
+        <button type="button" class="btn ghost" id="btn-compact" aria-pressed="false" title="밀집 보기">Compact</button>
+        <button type="button" class="btn" id="btn-export" title="CSV로 내보내기">Export</button>
+        <button type="button" class="btn primary" id="btn-add" title="일정 추가">Add Event</button>
+      </div>
+    </div>
+    <p class="sp-sub">전사 일정과 주요 행사 일정을 월 단위로 한눈에 확인하세요.</p>
+  </section>
+
+  <!-- (A) 스크린샷 이미지도 같이 표시하고 클릭 시 확대 -->
+  <div class="card imgbox" aria-label="전사 일정 이미지 미리보기">
+    <img id="calendar-thumb" src="enterprise-calendar.png" alt="Enterprise Calendar" loading="lazy" onclick="openImage()" onload="calendarImageReady()" onerror="calendarImageMissing()" />
+  </div>
+
+  <!-- (필터/보기 전환) -->
+  <div class="controls" aria-label="보기 및 필터">
+    <div class="seg" role="tablist" aria-label="보기 전환">
+      <button id="btn-view-cat" role="tab" aria-selected="true" aria-pressed="true">카테고리별</button>
+      <button id="btn-view-team" role="tab" aria-selected="false" aria-pressed="false">팀별</button>
+    </div>
+    <div id="filter-cat" class="scroll-x" aria-label="카테고리 선택">
+      <!-- 카테고리 피ills가 생성됩니다 -->
+    </div>
+    <div id="filter-team" class="scroll-x" aria-label="팀 선택" style="display:none">
+      <!-- 팀 피ills가 생성됩니다 -->
+    </div>
+  </div>
+
+  <!-- (B) 연간 매트릭스 표 -->
+  <div class="card year-grid" style="margin-top:8px" id="year-grid" aria-labelledby="year-title">
+    <div id="year-title" class="visually-hidden" aria-hidden="true">연간 일정 매트릭스</div>
+    <div class="header">
+      <div style="border-right:1px solid var(--grid)"></div>
+      <div>1월</div><div>2월</div><div>3월</div><div>4월</div><div>5월</div><div>6월</div>
+      <div>7월</div><div>8월</div><div>9월</div><div>10월</div><div>11월</div><div>12월</div>
+    </div>
+    <div id="lane-rows"></div>
+    <div class="grid-lines" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+    <div class="today-line" id="today-line" aria-hidden="true"></div>
+    <div class="bar-layer" id="bar-layer"></div>
+  </div>
+  <p class="hint">※ 아래 <code>events</code> 데이터는 로컬에 저장됩니다. 카테고리/팀으로 필터해서 보거나, 아래 폼에서 새 일정을 추가하세요.</p>
+
+  <!-- (C) 일정 입력 폼) -->
+  <form id="event-form" class="card" style="margin-top:12px;padding:12px" aria-label="일정 입력">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end">
+      <label>제목<br><input required name="title" placeholder="예: Leadership Day" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px"></label>
+      <label>시작일<br><input required type="date" name="start" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px"></label>
+      <label>종료일<br><input required type="date" name="end" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px"></label>
+      <label>카테고리<br>
+        <select required name="category" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px">
+          <option value="행사">행사</option>
+          <option value="업무">업무</option>
+          <option value="신청">신청</option>
+        </select>
+      </label>
+      <label>팀(레인)<br>
+        <select required name="lane" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px" id="lane-select"></select>
+      </label>
+      <label style="grid-column:1/-1">메모(선택)<br><input name="note" placeholder="비고" style="width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px"></label>
+      <div style="display:flex;gap:8px">
+        <button type="submit">추가</button>
+        <button type="button" id="btn-clear">초기화</button>
+        <button type="button" id="btn-reset">모두 삭제</button>
+      </div>
+    </div>
+  </form>
+
+  <!-- 공용 모달 -->
+  <div id="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="m-title" aria-describedby="m-when m-dept m-note">
+    <div class="box">
+      <h3 id="m-title"></h3>
+      <p id="m-when"></p>
+      <p id="m-dept"></p>
+      <p id="m-note"></p>
+      <div class="modal-actions"><button class="close" id="closeBtn">닫기 (Esc)</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- 상수 ----------
+  const CATEGORIES = ["행사","업무","신청"]; // 카테고리 축
+  const LANES = ["전략","재경","인사","컴플라이언스","IT","운영","마케팅","영업","교육","행사"]; // 팀/부서 축
+  const LS_KEY = 'gate:events:v1';
+
+  // ---------- 유틸 ----------
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const KST = new Intl.DateTimeFormat('ko-KR', { timeZone:'Asia/Seoul', dateStyle:'medium' });
+  const fmtRange = (s,e)=> `${KST.format(s)} ~ ${KST.format(e)}`;
+  const parseDate = (s)=>{ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+
+  // ---------- 초기 UI 빌드: 레인 행/셀 ----------
+  const laneRows = $("#lane-rows");
+  LANES.forEach((name)=>{
+    const row = document.createElement("div");
+    row.className="row"; row.setAttribute('role','row');
+    row.innerHTML = `<div class="lane-name" role="rowheader">${name}</div>` + Array.from({length:12}).map(()=>`<div class="cell" role="gridcell"></div>`).join("");
+    laneRows.appendChild(row);
+  });
+
+  // 레인 선택 옵션 채우기
+  const laneSel = $("#lane-select");
+  laneSel.innerHTML = LANES.map(l=>`<option value="${l}">${l}</option>`).join("");
+
+  // ---------- 필터/보기 컨트롤 ----------
+  const catWrap = $("#filter-cat");
+  const teamWrap = $("#filter-team");
+  let viewMode = 'category'; // 'category' | 'team'
+  let activeCategory = '전체';
+  let activeTeam = '전체';
+
+  function renderFilterPills(){
+    // 카테고리
+    catWrap.innerHTML = '';
+    ["전체", ...CATEGORIES].forEach(cat=>{
+      const b = document.createElement('button');
+      b.className='pill'; b.type='button';
+      b.textContent = cat; b.setAttribute('aria-pressed', String(activeCategory===cat));
+      b.onclick = ()=>{ activeCategory = cat; refresh(); renderFilterPills(); };
+      catWrap.appendChild(b);
+    });
+    // 팀
+    teamWrap.innerHTML = '';
+    ["전체", ...LANES].forEach(team=>{
+      const b = document.createElement('button');
+      b.className='pill'; b.type='button';
+      b.textContent = team; b.setAttribute('aria-pressed', String(activeTeam===team));
+      b.onclick = ()=>{ activeTeam = team; refresh(); renderFilterPills(); };
+      teamWrap.appendChild(b);
+    });
+  }
+
+  // 보기 전환
+  const btnViewCat = $("#btn-view-cat");
+  const btnViewTeam = $("#btn-view-team");
+  btnViewCat.onclick = ()=>{ viewMode='category'; btnViewCat.setAttribute('aria-pressed','true'); btnViewTeam.setAttribute('aria-pressed','false'); catWrap.style.display='flex'; teamWrap.style.display='none'; };
+  btnViewTeam.onclick = ()=>{ viewMode='team'; btnViewCat.setAttribute('aria-pressed','false'); btnViewTeam.setAttribute('aria-pressed','true'); catWrap.style.display='none'; teamWrap.style.display='flex'; };
+
+  // ---------- 데이터 ----------
+  const DEFAULT_EVENTS = [
+    { title:"Global Budget", start:"2025-02-10", end:"2025-03-20", lane:"전략", category:"업무", note:"PGS~PGS" },
+    { title:"Global Connection", start:"2025-03-01", end:"2025-03-31", lane:"행사", category:"행사", note:"전사 커뮤니케이션" },
+    { title:"Mission Update", start:"2025-05-01", end:"2025-05-31", lane:"행사", category:"행사", note:"미션 리프레시" },
+    { title:"H1 Forecast 정리", start:"2025-04-01", end:"2025-04-30", lane:"재경", category:"업무", note:"상반기 FCST" },
+    { title:"H2 Forecast 준비", start:"2025-09-01", end:"2025-09-30", lane:"재경", category:"업무", note:"하반기 FCST" },
+    { title:"Performance Review(H1)", start:"2025-06-01", end:"2025-06-30", lane:"인사", category:"업무", note:"평가/보상" },
+    { title:"Leadership Day", start:"2025-10-01", end:"2025-10-07", lane:"인사", category:"행사", note:"리더십 워크샵" },
+    { title:"보안/정책 점검", start:"2025-07-01", end:"2025-07-31", lane:"컴플라이언스", category:"업무", note:"정기 점검" },
+    { title:"사내 교육 위크", start:"2025-04-07", end:"2025-04-11", lane:"교육", category:"신청", note:"직무/기술 교육 (사전 신청)" },
+    { title:"신제품 론칭 캠페인", start:"2025-06-01", end:"2025-07-15", lane:"마케팅", category:"업무", note:"멀티채널" },
+    { title:"고객 컨퍼런스", start:"2025-11-10", end:"2025-11-12", lane:"영업", category:"행사", note:"주요 고객 초청" }
+  ];
+
+  function loadEvents(){
+    try{ const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : DEFAULT_EVENTS; }
+    catch(e){ return DEFAULT_EVENTS; }
+  }
+  function saveEvents(list){ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+
+  let events = loadEvents();
+
+  // ---------- 바 렌더 ----------
+  const layer = document.getElementById("bar-layer");
+  const yearGrid = document.getElementById("year-grid");
+  const todayLine = document.getElementById("today-line");
+
+  function monthIndex(d){ return d.getMonth(); } // 0..11
+  function monthSpan(s,e){
+    const months = (e.getFullYear()-s.getFullYear())*12 + (e.getMonth()-s.getMonth()) + 1;
+    return Math.max(1, months);
+  }
+  function laneY(name){
+    const idx = LANES.indexOf(name);
+    const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h'));
+    const laneH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lane-h'));
+    const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lane-gap'));
+    return header + idx * (laneH + gap);
+  }
+  function renderTodayLine(){
+    const now = new Date();
+    // 월 + 일 비율 반영 (더 정밀)
+    const month = now.getMonth();
+    const day = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), month+1, 0).getDate();
+    const monthFrac = month + (day-1)/daysInMonth; // 0~11.x
+    const leftPct = (monthFrac/12)*100;
+    todayLine.style.left = `calc(${leftPct}% + var(--left-col))`;
+  }
+
+  function filtered(list){
+    return list.filter(ev => {
+      const okCat = (activeCategory==='전체') || (ev.category===activeCategory);
+      const okTeam = (activeTeam==='전체') || (ev.lane===activeTeam);
+      return okCat && okTeam;
+    });
+  }
+
+  function renderBars(){
+    layer.innerHTML = '';
+    const list = filtered(events);
+
+    list.forEach((ev)=>{
+      const s = parseDate(ev.start), e = parseDate(ev.end);
+      const sIdx = monthIndex(s), span = monthSpan(s,e);
+      const bar = document.createElement('div');
+      bar.className = `event t-${ev.lane}`;
+      bar.style.left = `calc(${(sIdx/12)*100}% + 6px)`;
+      bar.style.top  = `${laneY(ev.lane) + 18}px`;
+      bar.style.width= `calc(${(span/12)*100}% - 12px)`;
+      bar.tabIndex = 0; bar.setAttribute('role','button');
+      bar.setAttribute('aria-label', `${ev.lane} · ${ev.title} · ${ev.start} ~ ${ev.end} · ${ev.category}`);
+      bar.textContent = ev.title;
+      bar.addEventListener('click', ()=>openModal(ev));
+      bar.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); openModal(ev); } });
+      layer.appendChild(bar);
+    });
+
+    renderTodayLine();
+  }
+
+  // ---------- 모달 ----------
+  function openModal(ev){
+    document.getElementById("m-title").textContent = ev.title;
+    const s = parseDate(ev.start), e = parseDate(ev.end);
+    document.getElementById("m-when").textContent = `일정: ${fmtRange(s,e)}`;
+    document.getElementById("m-dept").textContent = `팀: ${ev.lane} · 카테고리: ${ev.category}`;
+    document.getElementById("m-note").textContent = ev.note ? `메모: ${ev.note}` : '';
+    const modal = document.getElementById("modal");
+    modal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    document.getElementById("closeBtn").focus();
+  }
+  function closeModal(){
+    const modal = document.getElementById("modal");
+    modal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  }
+  window.closeModal = closeModal;
+  document.getElementById("modal").addEventListener('click', (e)=>{ if(e.target.id==='modal') closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
+  document.getElementById("closeBtn").addEventListener('click', closeModal);
+
+  // ---------- 폼 ----------
+  const form = document.getElementById('event-form');
+  const btnClear = document.getElementById('btn-clear');
+  const btnReset = document.getElementById('btn-reset');
+
+  form.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const fd = new FormData(form);
+    const title = fd.get('title').toString().trim();
+    const start = fd.get('start').toString();
+    const end = fd.get('end').toString();
+    const category = fd.get('category').toString();
+    const lane = fd.get('lane').toString();
+    const note = (fd.get('note')||'').toString().trim();
+
+    if(!title || !start || !end) return;
+    if(end < start){ alert('종료일이 시작일보다 빠를 수 없습니다.'); return; }
+
+    const ev = { title, start, end, category, lane, note };
+    events.push(ev);
+    saveEvents(events);
+    form.reset();
+    refresh();
+  });
+  btnClear.addEventListener('click', ()=> form.reset());
+  btnReset.addEventListener('click', ()=>{
+    if(confirm('모든 일정을 삭제하고 기본 예시로 초기화할까요?')){
+      events = DEFAULT_EVENTS.slice();
+      saveEvents(events);
+      refresh();
+    }
+  });
+
+  // ---------- 초기 렌더 ----------
+  function refresh(){ renderBars(); }
+  renderFilterPills();
+  refresh();
+
+  // ---------- 이미지 확대 & 이미지 존재 여부 처리 ----------
+  let imageAvailable = false;
+  function calendarImageReady(){ imageAvailable = true; }
+  function calendarImageMissing(){
+    imageAvailable = false;
+    const box = document.querySelector('.imgbox');
+    if (box) box.remove(); // 썸네일 카드 자체 제거 → 깨진 아이콘/대체텍스트 노출 방지
+  }
+  function openImage(){
+    if(!imageAvailable){
+      return;
+    }
+    document.getElementById("m-title").textContent = '전사일정&행사 (이미지 보기)';
+    document.getElementById("m-when").innerHTML = '<img src="enterprise-calendar.png" style="width:100%;border:1px solid #e5e7eb;border-radius:8px" alt="calendar" />';
+    document.getElementById("m-dept").textContent = '';
+    document.getElementById("m-note").textContent = '';
+    document.getElementById("modal").setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    document.getElementById("closeBtn").focus();
+  }
+  window.openImage = openImage;
+
+  // ---------- SP Toolbar actions (추가) ----------
+  // Compact density toggle
+  const btnCompact = document.getElementById('btn-compact');
+  btnCompact?.addEventListener('click', ()=>{
+    const on = document.body.classList.toggle('compact');
+    btnCompact.setAttribute('aria-pressed', String(on));
+    refresh();
+  });
+
+  // Export CSV
+  const btnExport = document.getElementById('btn-export');
+  btnExport?.addEventListener('click', ()=>{
+    const headers = ["title","start","end","lane","category","note"];
+    const rows = [headers.join(",")].concat(
+      events.map(ev=>headers.map(h=>{
+        const val = (ev[h] ?? "").toString().replace(/"/g,'""');
+        const needQuotes = /[",\n]/.test(val);
+        return needQuotes ? `"${val}"` : val;
+      }).join(","))
+    );
+    const csv = rows.join("\n");
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'enterprise-calendar.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // Add Event → 폼으로 스크롤
+  const btnAdd = document.getElementById('btn-add');
+  btnAdd?.addEventListener('click', ()=>{
+    document.getElementById('event-form')?.scrollIntoView({behavior:'smooth', block:'start'});
+    const first = document.querySelector('#event-form input[name="title"]');
+    if(first) first.focus();
+  });
+
+  // 리사이즈 시 위치 재계산
+  window.addEventListener('resize', refresh);
+// ===== Tooltip (data-tooltip 보유 요소용) =====
+(function setupTooltip(){
+  // 툴팁 엘리먼트 1개만 동적 생성
+  const tip = document.createElement('div');
+  tip.className = 'tooltip';
+  tip.setAttribute('role', 'tooltip');
+  tip.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(tip);
+
+  let activeEl = null;
+
+  // 말풍선 위치 계산 (뷰포트 밖으로 나가지 않도록 보정)
+  function positionTip(x, y){
+    const margin = 10;     // 가장자리 여유
+    const offsetY = 18;    // 마우스 위로 띄우기
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // 먼저 중앙 기준 좌표 배치
+    let left = x;
+    let top  = y - offsetY;
+
+    // 일단 표시해 보고 크기 측정
+    tip.style.left = `${left}px`;
+    tip.style.top  = `${top}px`;
+    const rect = tip.getBoundingClientRect();
+
+    // 좌우/상하 범위 보정
+    if (rect.left < margin)       left += (margin - rect.left);
+    if (rect.right > vw - margin) left -= (rect.right - (vw - margin));
+    if (rect.top < margin)        top  = y + offsetY; // 위가 부족하면 아래로
+    if (rect.bottom > vh - margin) top = vh - margin - rect.height;
+
+    tip.style.left = `${left}px`;
+    tip.style.top  = `${top}px`;
+  }
+
+  function showTip(el, clientX, clientY){
+    const text = el.getAttribute('data-tooltip');
+    if (!text) return;
+    activeEl = el;
+    tip.textContent = text;
+    tip.dataset.show = 'true';
+    tip.setAttribute('aria-hidden', 'false');
+    positionTip(clientX ?? (el.getBoundingClientRect().left + el.offsetWidth/2),
+                clientY ?? (el.getBoundingClientRect().top));
+  }
+
+  function hideTip(){
+    activeEl = null;
+    tip.dataset.show = 'false';
+    tip.setAttribute('aria-hidden', 'true');
+  }
+
+  // 마우스 이벤트: data-tooltip 가진 요소에만 적용 (이벤트 위임)
+  document.addEventListener('mouseover', (e)=>{
+    const el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    showTip(el, e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', (e)=>{
+    if (!activeEl) return;
+    positionTip(e.clientX, e.clientY);
+  });
+  document.addEventListener('mouseout', (e)=>{
+    // 활성 요소를 벗어났을 때만 닫기
+    if (activeEl && !e.relatedTarget?.closest('[data-tooltip]')) hideTip();
+  });
+
+  // 키보드 접근성: 포커스 들어오면 표시, 빠지면 숨김
+  document.addEventListener('focusin', (e)=>{
+    const el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    // 포커스 시엔 요소 중심 기준 위치
+    const r = el.getBoundingClientRect();
+    showTip(el, r.left + r.width/2, r.top);
+  });
+  document.addEventListener('focusout', (e)=>{
+    if (e.target.closest('[data-tooltip]')) hideTip();
+  });
+
+  // 스크롤/리사이즈 시 위치 업데이트
+  window.addEventListener('scroll', ()=>{
+    if (!activeEl || tip.getAttribute('aria-hidden')==='true') return;
+    const r = activeEl.getBoundingClientRect();
+    positionTip(r.left + r.width/2, r.top);
+  }, { passive: true });
+  window.addEventListener('resize', ()=>{
+    if (!activeEl || tip.getAttribute('aria-hidden')==='true') return;
+    const r = activeEl.getBoundingClientRect();
+    positionTip(r.left + r.width/2, r.top);
+  });
+})();
+
+</script>
+</body>
+</html>
